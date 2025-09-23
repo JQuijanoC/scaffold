@@ -104,9 +104,9 @@ END $$;
 
 
 -- Step 4: Create the initial Super Administrator user
--- Password for this user is "password"
+-- Password for this user is "jaqc1112"
 INSERT INTO users (name, email, password_hash, tenant_id)
-VALUES ('Jaime', 'jaime@aiq5.com', '$2a$10$JLfIW8Hc9PwbZ3DpM.VSWeY0JoPaOBuI1Wq7gcQxE42MCL7ApiLK6', NULL);
+VALUES ('Jaime', 'jaime@aiq5.com', '$2b$10$cK/6NrvFa76DMsxkeMj3XeArAuizYQI25gf1iFXeMltY6yqtZNEBO', NULL);
 
 -- Step 5: Assign the 'Super Administrator' role to the new user
 DO $$
@@ -121,6 +121,38 @@ BEGIN
     SELECT id INTO role_id_val FROM roles WHERE name = 'Super Administrator' AND tenant_id IS NULL;
 
     -- Assign the role to the user
+    INSERT INTO user_roles (user_id, role_id)
+    VALUES (user_id_val, role_id_val);
+END $$;
+
+
+-- Section 3: Sample Tenant and Tenant Admin Creation
+-- ===================================================
+
+-- Step 6: Create a Sample Tenant
+INSERT INTO tenants (company_name, email)
+VALUES ('Sample Company Inc.', 'contact@samplecompany.com');
+
+-- Step 7: Create a Tenant Administrator for the sample tenant
+-- Password for this user is "jaqc1112"
+DO $$
+DECLARE
+    user_id_val INT;
+    role_id_val INT;
+    tenant_id_val INT;
+BEGIN
+    -- Get the ID of the tenant we just created
+    SELECT id INTO tenant_id_val FROM tenants WHERE company_name = 'Sample Company Inc.';
+
+    -- Create the user record with the tenant_id
+    INSERT INTO users (name, email, password_hash, tenant_id)
+    VALUES ('Tenant Admin', 'quijano.jaime1228@gmail.com', '$2b$10$cK/6NrvFa76DMsxkeMj3XeArAuizYQI25gf1iFXeMltY6yqtZNEBO', tenant_id_val)
+    RETURNING id INTO user_id_val;
+
+    -- Get the ID of the 'Tenant Administrator' role template (which has tenant_id IS NULL)
+    SELECT id INTO role_id_val FROM roles WHERE name = 'Tenant Administrator' AND tenant_id IS NULL;
+
+    -- Assign the global role template to the new tenant user.
     INSERT INTO user_roles (user_id, role_id)
     VALUES (user_id_val, role_id_val);
 END $$;
