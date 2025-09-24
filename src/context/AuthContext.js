@@ -1,75 +1,74 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/router';
 
-const AuthContext = createContext(null);
+const AuthContext = createContext();
 
-export function AuthProvider({ children }) {
+// A helper function to parse the JWT token
+const parseJwt = (token) => {
+  try {
+    return JSON.parse(atob(token.split('.')[1]));
+  } catch (e) {
+    return null;
+  }
+};
+
+export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    try {
-      const storedToken = localStorage.getItem('authToken');
-      const storedUser = localStorage.getItem('authUser');
-      if (storedToken && storedUser) {
-        setToken(storedToken);
-        setUser(JSON.parse(storedUser));
+    const token = localStorage.getItem('token');
+    if (token) {
+      const decoded = parseJwt(token);
+      // Check if the token is expired
+      if (decoded && decoded.exp * 1000 > Date.now()) {
+        setUser(decoded);
+      } else {
+        localStorage.removeItem('token');
       }
-    } catch (error) {
-      console.warn("Could not access localStorage.");
     }
     setLoading(false);
   }, []);
 
-  const login = async (email, password) => {
-    try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.message || 'Failed to login');
+  const login = useCallback(async (email, password) => {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+    });
 
-      setToken(data.token);
-      setUser(data.user);
-      localStorage.setItem('authToken', data.token);
-      localStorage.setItem('authUser', JSON.stringify(data.user));
-      router.push('/');
-      return { success: true };
-    } catch (error) {
-      console.error('Login failed:', error);
-      return { success: false, message: error.message };
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.message || 'Login failed');
     }
-  };
 
-  const logout = () => {
-    setToken(null);
+    const { token } = await res.json();
+    const decoded = parseJwt(token);
+    if (decoded) {
+      localStorage.setItem('token', token);
+      setUser(decoded);
+      router.push('/');
+    }
+  }, [router]);
+
+  const logout = useCallback(() => {
+    localStorage.removeItem('token');
     setUser(null);
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('authUser');
-    router.push('/login');
-  };
+    router.push('/login?message=session_expired');
+  }, [router]);
 
   const hasCapability = (capability) => {
     return user?.capabilities?.includes(capability) ?? false;
   };
 
-  const value = { user, token, isAuthenticated: !!token, loading, login, logout, hasCapability };
-
   return (
-    <AuthContext.Provider value={value}>
-      {!loading && children}
+    <AuthContext.Provider value={{ user, login, logout, loading, hasCapability }}>
+      {children}
     </AuthContext.Provider>
   );
-}
+};
 
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-}
+export const useAuth = () => useContext(AuthContext);

@@ -1,87 +1,114 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
 import { useRouter } from 'next/router';
-import { Button, TextField, Container, Typography, Box, Alert } from '@mui/material';
+import { useAuth } from '../context/AuthContext';
+import {
+  Container,
+  Box,
+  TextField,
+  Button,
+  Typography,
+  Paper,
+  Grid,
+  Alert
+} from '@mui/material';
 
-export default function LoginPage() {
+const LoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const { login, isAuthenticated } = useAuth();
+  const { login } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (isAuthenticated) {
-      router.push('/');
+    if (router.query.message === 'session_expired') {
+      setError('Your session has expired. Please sign in again.');
     }
-  }, [isAuthenticated, router]);
+  }, [router.query.message]);
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     setError('');
-    if (!email || !password) {
-      setError('Email and password are required.');
-      return;
-    }
-    const result = await login(email, password);
-    if (!result.success) {
-      setError(result.message || 'Failed to login.');
+    try {
+      await login(email, password);
+    } catch (err) {
+      setError(err.message);
     }
   };
 
   return (
-    <Container component="main" maxWidth="xs">
-      <Box
-        sx={{
-          marginTop: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}
+    <Container component="main" maxWidth="sm">
+      <Grid
+        container
+        spacing={0}
+        direction="column"
+        alignItems="center"
+        justifyContent="center"
+        sx={{ minHeight: '100vh' }}
       >
-        <Typography component="h1" variant="h5">
-          Sign in
-        </Typography>
-        <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 1 }}>
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            id="email"
-            label="Email Address"
-            name="email"
-            autoComplete="email"
-            autoFocus
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            InputLabelProps={{ shrink: true }}
-            variant="standard"
-          />
-          <TextField
-            margin="normal"
-            required
-            fullWidth
-            name="password"
-            label="Password"
-            type="password"
-            id="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            InputLabelProps={{ shrink: true }}
-            variant="standard"
-          />
-          {error && <Alert severity="error" sx={{ mt: 2, width: '100%' }}>{error}</Alert>}
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            sx={{ mt: 3, mb: 2 }}
-          >
-            Sign In
-          </Button>
-        </Box>
-      </Box>
+        <Grid item xs={12}>
+          <Paper elevation={8} sx={{ p: 4 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+              }}
+            >
+              <Typography component="h1" variant="h5">
+                Sign in
+              </Typography>
+              {error && (
+                <Alert
+                  severity={router.query.message === 'session_expired' ? 'error' : 'info'}
+                  sx={{ width: '100%', mt: 2 }}
+                >
+                  {error}
+                </Alert>
+              )}
+              <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 1 }}>
+                <TextField
+                  margin="normal"
+                  required
+                  fullWidth
+                  id="email"
+                  label="Email Address"
+                  name="email"
+                  autoComplete="email"
+                  autoFocus
+                  variant="standard"
+                  InputLabelProps={{ shrink: true }}
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+                <TextField
+                  margin="normal"
+                  required
+                  fullWidth
+                  name="password"
+                  label="Password"
+                  type="password"
+                  id="password"
+                  autoComplete="current-password"
+                  variant="standard"
+                  InputLabelProps={{ shrink: true }}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <Button
+                  type="submit"
+                  fullWidth
+                  variant="contained"
+                  sx={{ mt: 3, mb: 2 }}
+                >
+                  Sign In
+                </Button>
+              </Box>
+            </Box>
+          </Paper>
+        </Grid>
+      </Grid>
     </Container>
   );
-}
+};
+
+export default LoginPage;
